@@ -1,14 +1,14 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
 #include "drone.h"
-
-#define NOMBRE_DRONES 10000
 
 int main()
 {
     Drone *essaim;
     ResultatCollision resultat;
+
+    clock_t debut;
+    clock_t fin;
+
+    double temps;
 
     srand((unsigned int)time(NULL));
 
@@ -22,28 +22,46 @@ int main()
 
     initialiserDrones(essaim, NOMBRE_DRONES);
 
-    printf("Systeme UAV initialise avec succes.\n");
+    printf("=== SYSTEME DE COLLISION UAV ===\n\n");
     printf("Nombre total de drones : %d\n\n", NOMBRE_DRONES);
 
-    printf("Affichage des 5 premiers drones :\n");
+    printf("Apercu des 5 premiers drones :\n");
     afficherDrones(essaim, 5);
 
-    resultat = trouverDronesPlusProches(essaim, NOMBRE_DRONES);
+    debut = clock();
 
-    printf("\nResultat de detection :\n");
+    resultat = chercherPlusProches(essaim, NOMBRE_DRONES);
+
+    fin = clock();
+
+    temps = ((double)(fin - debut)) / CLOCKS_PER_SEC;
+
+    printf("\n=== RESULTAT DE DETECTION ===\n");
 
     if (resultat.drone1 != NULL && resultat.drone2 != NULL)
     {
-        printf("Drone 1 : ID %d\n", resultat.drone1->id);
-        printf("Drone 2 : ID %d\n", resultat.drone2->id);
-        printf("Distance minimale : %.4f\n", resultat.distance);
+        printf("Drone 1 : ID %d | X = %.2f | Y = %.2f | Z = %.2f\n",
+               resultat.drone1->id,
+               resultat.drone1->x,
+               resultat.drone1->y,
+               resultat.drone1->z);
+
+        printf("Drone 2 : ID %d | X = %.2f | Y = %.2f | Z = %.2f\n",
+               resultat.drone2->id,
+               resultat.drone2->x,
+               resultat.drone2->y,
+               resultat.drone2->z);
+
+        printf("\nDistance minimale : %.4f\n", resultat.distance);
+        printf("Temps d'execution : %.6f secondes\n", temps);
     }
     else
     {
-        printf("Detection impossible.\n");
+        printf("Aucun resultat trouve.\n");
     }
 
     free(essaim);
+    essaim = NULL;
 
     printf("\nAppuyez sur Entree pour fermer...");
     getchar();
