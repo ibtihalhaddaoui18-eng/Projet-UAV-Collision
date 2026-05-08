@@ -1,9 +1,43 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
 #include "drone.h"
 
-float distanceCarree(Drone *a, Drone *b)
+void initialiserDrones(Drone *essaim, int n)
+{
+    Drone *curseur;
+    int i;
+
+    curseur = essaim;
+
+    for (i = 0; i < n; i++)
+    {
+        curseur->id = i + 1;
+        curseur->x = (float)(rand() % 10000);
+        curseur->y = (float)(rand() % 10000);
+        curseur->z = (float)(rand() % 10000);
+
+        curseur++;
+    }
+}
+
+void afficherDrones(Drone *essaim, int n)
+{
+    Drone *curseur;
+    int i;
+
+    curseur = essaim;
+
+    for (i = 0; i < n; i++)
+    {
+        printf("Drone %d : X = %.2f | Y = %.2f | Z = %.2f\n",
+               curseur->id,
+               curseur->x,
+               curseur->y,
+               curseur->z);
+
+        curseur++;
+    }
+}
+
+float distanceDrone(Drone *a, Drone *b)
 {
     float dx;
     float dy;
@@ -13,48 +47,10 @@ float distanceCarree(Drone *a, Drone *b)
     dy = a->y - b->y;
     dz = a->z - b->z;
 
-    return dx * dx + dy * dy + dz * dz;
+    return sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-float calculerDistance(Drone *a, Drone *b)
-{
-    return sqrt(distanceCarree(a, b));
-}
-
-void initialiserDrones(Drone *essaim, int nombre)
-{
-    Drone *p;
-    int i;
-
-    p = essaim;
-
-    for (i = 0; i < nombre; i++)
-    {
-        (p + i)->id = i + 1;
-        (p + i)->x = (float)(rand() % 10000);
-        (p + i)->y = (float)(rand() % 10000);
-        (p + i)->z = (float)(rand() % 10000);
-    }
-}
-
-void afficherDrones(Drone *essaim, int nombre)
-{
-    Drone *p;
-    int i;
-
-    p = essaim;
-
-    for (i = 0; i < nombre; i++)
-    {
-        printf("Drone %d : X = %.2f | Y = %.2f | Z = %.2f\n",
-               (p + i)->id,
-               (p + i)->x,
-               (p + i)->y,
-               (p + i)->z);
-    }
-}
-
-int comparerSelonX(const void *a, const void *b)
+int comparerX(const void *a, const void *b)
 {
     Drone *d1;
     Drone *d2;
@@ -75,7 +71,7 @@ int comparerSelonX(const void *a, const void *b)
     return 0;
 }
 
-int comparerPointeursSelonY(const void *a, const void *b)
+int comparerPointeursY(const void *a, const void *b)
 {
     Drone *d1;
     Drone *d2;
@@ -96,29 +92,19 @@ int comparerPointeursSelonY(const void *a, const void *b)
     return 0;
 }
 
-ResultatCollision resultatVide()
+ResultatCollision creerResultatVide()
 {
     ResultatCollision r;
 
     r.drone1 = NULL;
     r.drone2 = NULL;
-    r.distance = 0.0f;
+    r.distance = FLT_MAX;
 
     return r;
 }
 
 ResultatCollision meilleurResultat(ResultatCollision r1, ResultatCollision r2)
 {
-    if (r1.drone1 == NULL)
-    {
-        return r2;
-    }
-
-    if (r2.drone1 == NULL)
-    {
-        return r1;
-    }
-
     if (r1.distance < r2.distance)
     {
         return r1;
@@ -127,30 +113,26 @@ ResultatCollision meilleurResultat(ResultatCollision r1, ResultatCollision r2)
     return r2;
 }
 
-ResultatCollision rechercheBruteLocale(Drone *debut, int nombre)
+ResultatCollision rechercheNaiveLocale(Drone *debut, int n)
 {
     Drone *a;
     Drone *b;
-
     ResultatCollision meilleur;
-    float distanceActuelle;
-    int premierCalcul;
+    float d;
 
-    meilleur = resultatVide();
-    premierCalcul = 1;
+    meilleur = creerResultatVide();
 
-    for (a = debut; a < debut + nombre; a++)
+    for (a = debut; a < debut + n; a++)
     {
-        for (b = a + 1; b < debut + nombre; b++)
+        for (b = a + 1; b < debut + n; b++)
         {
-            distanceActuelle = calculerDistance(a, b);
+            d = distanceDrone(a, b);
 
-            if (premierCalcul || distanceActuelle < meilleur.distance)
+            if (d < meilleur.distance)
             {
                 meilleur.drone1 = a;
                 meilleur.drone2 = b;
-                meilleur.distance = distanceActuelle;
-                premierCalcul = 0;
+                meilleur.distance = d;
             }
         }
     }
@@ -158,7 +140,7 @@ ResultatCollision rechercheBruteLocale(Drone *debut, int nombre)
     return meilleur;
 }
 
-ResultatCollision rechercheRecursive(Drone *debut, int nombre)
+ResultatCollision rechercheRecursive(Drone *debut, int n)
 {
     int milieu;
     int i;
@@ -168,7 +150,6 @@ ResultatCollision rechercheRecursive(Drone *debut, int nombre)
     float xMilieu;
     float ecartX;
     float ecartY;
-    float ecartZ;
     float distanceActuelle;
 
     Drone **bande;
@@ -177,34 +158,30 @@ ResultatCollision rechercheRecursive(Drone *debut, int nombre)
     ResultatCollision droite;
     ResultatCollision meilleur;
 
-    if (nombre < 2)
+    if (n <= 3)
     {
-        return resultatVide();
+        return rechercheNaiveLocale(debut, n);
     }
 
-    if (nombre <= 3)
-    {
-        return rechercheBruteLocale(debut, nombre);
-    }
-
-    milieu = nombre / 2;
+    milieu = n / 2;
     xMilieu = (debut + milieu)->x;
 
     gauche = rechercheRecursive(debut, milieu);
-    droite = rechercheRecursive(debut + milieu, nombre - milieu);
+    droite = rechercheRecursive(debut + milieu, n - milieu);
 
     meilleur = meilleurResultat(gauche, droite);
 
-    bande = (Drone **)malloc(nombre * sizeof(Drone *));
+    bande = (Drone **)malloc(n * sizeof(Drone *));
 
     if (bande == NULL)
     {
-        return meilleur;
+        printf("Erreur : allocation de la bande centrale impossible.\n");
+        exit(1);
     }
 
     tailleBande = 0;
 
-    for (i = 0; i < nombre; i++)
+    for (i = 0; i < n; i++)
     {
         ecartX = fabs((debut + i)->x - xMilieu);
 
@@ -215,7 +192,7 @@ ResultatCollision rechercheRecursive(Drone *debut, int nombre)
         }
     }
 
-    qsort(bande, tailleBande, sizeof(Drone *), comparerPointeursSelonY);
+    qsort(bande, tailleBande, sizeof(Drone *), comparerPointeursY);
 
     for (i = 0; i < tailleBande; i++)
     {
@@ -230,18 +207,13 @@ ResultatCollision rechercheRecursive(Drone *debut, int nombre)
                 break;
             }
 
-            ecartZ = fabs((*(bande + j))->z - (*(bande + i))->z);
+            distanceActuelle = distanceDrone(*(bande + i), *(bande + j));
 
-            if (ecartZ < meilleur.distance)
+            if (distanceActuelle < meilleur.distance)
             {
-                distanceActuelle = calculerDistance(*(bande + i), *(bande + j));
-
-                if (distanceActuelle < meilleur.distance)
-                {
-                    meilleur.drone1 = *(bande + i);
-                    meilleur.drone2 = *(bande + j);
-                    meilleur.distance = distanceActuelle;
-                }
+                meilleur.drone1 = *(bande + i);
+                meilleur.drone2 = *(bande + j);
+                meilleur.distance = distanceActuelle;
             }
 
             j++;
@@ -253,9 +225,10 @@ ResultatCollision rechercheRecursive(Drone *debut, int nombre)
     return meilleur;
 }
 
-ResultatCollision trouverDronesPlusProches(Drone *essaim, int nombre)
+ResultatCollision chercherPlusProches(Drone *essaim, int n)
 {
-    qsort(essaim, nombre, sizeof(Drone), comparerSelonX);
+    qsort(essaim, n, sizeof(Drone), comparerX);
 
-    return rechercheRecursive(essaim, nombre);
+    return rechercheRecursive(essaim, n);
 }
+
